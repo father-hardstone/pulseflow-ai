@@ -2,7 +2,7 @@ const config = require("../config");
 const { requireLlmProvider } = require("../helpers/requireConfig");
 const { httpError } = require("../helpers/errors");
 const { resolveTone } = require("../helpers/emailTones");
-const { composeStructuredEmail } = require("../helpers/renderOutreachEmail");
+const { composeStructuredEmail, applySenderName } = require("../helpers/renderOutreachEmail");
 
 const modelCache = new Map();
 let zodPromise = null;
@@ -57,7 +57,7 @@ function isGenericName(name) {
   return !n || n === "team" || n === "there" || n === "unknown";
 }
 
-function buildPrompt({ lead, contextChunks, objective, tone, enrichment }) {
+function buildPrompt({ lead, contextChunks, objective, tone, enrichment, senderName }) {
   const contextBlock = contextChunks.length
     ? contextChunks
         .map(
@@ -90,7 +90,10 @@ function buildPrompt({ lead, contextChunks, objective, tone, enrichment }) {
     "- opening: one sentence that references something specific about their company, role, or inbound context.",
     "- body: 2–3 short sentences connecting their situation to your value (grounded in CONTEXT).",
     "- cta: one sentence with a clear ask and two concrete time options (day + time).",
-    "- signOff: one line closing + placeholder sender name on its own line: [Your Name]",
+    "- signOff: closing line (e.g. Best, / Thanks,) then the sender's name on its own line.",
+    senderName
+      ? `- Sender name for sign-off (use exactly): ${senderName}`
+      : "- signOff must end with the sender's real name — never use [Your Name] or placeholders.",
   isInbound
       ? "- Acknowledge inbound interest; never open with 'I hope this email finds you well'."
       : "- Infer likely pain points from role/company; do not invent facts.",
@@ -123,6 +126,7 @@ async function generateOutreach({
   tone,
   llmProvider,
   enrichment = null,
+  senderName = "",
 }) {
   const provider = resolveProvider(llmProvider || config.activeLlmProvider());
   requireLlmProvider(provider);
@@ -135,11 +139,17 @@ async function generateOutreach({
     opening: z.string().describe("One sentence hook tied to the lead or company"),
     body: z.string().describe("2-3 sentences of value proposition grounded in context"),
     cta: z.string().describe("Clear CTA with two specific meeting time options"),
-    signOff: z.string().describe("Professional sign-off ending with [Your Name] on its own line"),
+    signOff: z
+      .string()
+      .describe(
+        senderName
+          ? `Professional sign-off ending with the sender name "${senderName}" on its own line`
+          : "Professional sign-off with the sender's real name on its own line (no placeholders)"
+      ),
   });
 
   const structured = model.withStructuredOutput(schema, { name: "outreach_email" });
-  const prompt = buildPrompt({ lead, contextChunks, objective, tone, enrichment });
+  const prompt = buildPrompt({ lead, contextChunks, objective, tone, enrichment, senderName });
 
   const t0 = Date.now();
   let result;
@@ -154,7 +164,7 @@ async function generateOutreach({
     throw httpError(502, "LLM returned incomplete structured output");
   }
 
-  const body = composeStructuredEmail(result);
+  const body = applySenderName(composeStructuredEmail(result), senderName);
   return {
     email: { subject: result.subject.trim(), body },
     sections: result,

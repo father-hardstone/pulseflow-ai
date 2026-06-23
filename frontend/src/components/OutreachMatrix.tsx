@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Users, Wand2, Eye, Sparkles, Rocket } from "lucide-react";
+import { Loader2, Trash2, Users, Wand2, Eye, Sparkles, Rocket, Send } from "lucide-react";
 import type { Lead } from "../lib/api";
 import StatusBadge from "./StatusBadge";
 
@@ -6,11 +6,15 @@ interface OutreachMatrixProps {
   leads: Lead[];
   loading: boolean;
   generatingAll: boolean;
+  sendingAll: boolean;
   pendingCount: number;
+  sendableCount: number;
   rowBusy: Record<string, boolean>;
   onPreview: (lead: Lead) => void;
   onGenerate: (id: string) => void;
   onGenerateAll: () => void;
+  onSend: (id: string) => void;
+  onSendAll: () => void;
   onClearAll: () => void;
 }
 
@@ -18,11 +22,15 @@ export default function OutreachMatrix({
   leads,
   loading,
   generatingAll,
+  sendingAll,
   pendingCount,
+  sendableCount,
   rowBusy,
   onPreview,
   onGenerate,
   onGenerateAll,
+  onSend,
+  onSendAll,
   onClearAll,
 }: OutreachMatrixProps) {
   return (
@@ -33,11 +41,24 @@ export default function OutreachMatrix({
           <h3 className="font-semibold text-fg">Outreach Matrix</h3>
           <span className="text-sm text-slate-400">({leads.length})</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={onSendAll}
+            className="btn-ghost border border-brand-500/35 text-brand-300 hover:bg-brand-500/10"
+            disabled={sendingAll || generatingAll || sendableCount === 0}
+            title="Send all generated emails via demo delivery"
+          >
+            {sendingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            Send all ({sendableCount})
+          </button>
           <button
             onClick={onGenerateAll}
             className="btn-primary"
-            disabled={generatingAll || pendingCount === 0}
+            disabled={generatingAll || sendingAll || pendingCount === 0}
           >
             {generatingAll ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -100,12 +121,28 @@ export default function OutreachMatrix({
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {lead.generated_email ? (
-                          <button
-                            onClick={() => onPreview(lead)}
-                            className="btn-ghost px-3 py-1.5 text-xs"
-                          >
-                            <Eye className="h-3.5 w-3.5" /> Preview
-                          </button>
+                          <>
+                            <button
+                              onClick={() => onSend(lead.id)}
+                              className="btn-primary px-3 py-1.5 text-xs"
+                              disabled={busy || sendingAll}
+                              title="Send demo email"
+                            >
+                              {busy ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5" />
+                              )}
+                              Send
+                            </button>
+                            <button
+                              onClick={() => onPreview(lead)}
+                              className="btn-ghost px-3 py-1.5 text-xs"
+                              disabled={busy || sendingAll}
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Preview
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={() => onGenerate(lead.id)}

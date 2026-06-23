@@ -20,6 +20,27 @@ function composeStructuredEmail(parts) {
   return blocks.join("\n\n");
 }
 
+function resolveSenderName(user) {
+  const full = String(user?.full_name || user?.fullName || "").trim();
+  if (full) return full;
+  const email = String(user?.email || "").trim();
+  if (email.includes("@")) {
+    const local = email.split("@")[0].split(/[._+-]/)[0];
+    if (local) return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return "there";
+}
+
+const SENDER_PLACEHOLDER_RE = /\[\s*your\s+name\s*\]/gi;
+
+function applySenderName(text, senderName) {
+  const name = String(senderName || "").trim();
+  if (!name) return String(text || "").trim();
+  return String(text || "")
+    .replace(SENDER_PLACEHOLDER_RE, name)
+    .trim();
+}
+
 function renderOutreachHtml(body, { leadName, companyName } = {}) {
   const paras = paragraphsFromBody(body);
   const bodyHtml = paras
@@ -88,4 +109,6 @@ module.exports = {
   paragraphsFromBody,
   renderOutreachHtml,
   wrapDemoEmail,
+  resolveSenderName,
+  applySenderName,
 };

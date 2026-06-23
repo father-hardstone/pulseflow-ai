@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type ApolloUsage, type HealthConfigured, type Lead } from "../lib/api";
+import { api, type EmailDeliveryResult, type ApolloUsage, type HealthConfigured, type Lead } from "../lib/api";
 import { DEFAULT_EMAIL_TONE, type EmailToneId } from "../lib/emailTones";
 import EmailPreviewModal from "./EmailPreviewModal";
 import OutreachLaunchpad from "./OutreachLaunchpad";
@@ -23,6 +23,16 @@ function leadsSinceLaunch(all: Lead[], startedAt: number): Lead[] {
   return all.filter((l) => new Date(l.created_at).getTime() >= cutoff);
 }
 
+function deliveryNotice(delivery: EmailDeliveryResult): string {
+  if (delivery.stubbed) {
+    return delivery.note || "Demo send skipped.";
+  }
+  if (delivery.channel === "mailtrap") {
+    return `Sent to Mailtrap. ${delivery.note || ""}`.trim();
+  }
+  return `Sent via Resend to ${delivery.deliveredTo.join(", ")}`;
+}
+
 export default function OutreachPanel({
   onChanged,
   health,
@@ -34,6 +44,7 @@ export default function OutreachPanel({
   const [loading, setLoading] = useState(true);
   const [launching, setLaunching] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [sendingAll, setSendingAll] = useState(false);
   const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<Lead | null>(null);
   const [error, setError] = useState("");
@@ -432,6 +443,57 @@ export default function OutreachPanel({
     }
   }
 
+  async function send(id: string) {
+    setRowBusy((b) => ({ ...b, [id]: true }));
+    setError("");
+    setNotice("");
+    try {
+      const res = await api.sendLeadEmail(id);
+      setNotice(deliveryNotice(res.delivery));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRowBusy((b) => ({ ...b, [id]: false }));
+    }
+  }
+
+  async function sendAll() {
+    const sendable = leads.filter((l) => l.generated_email);
+    if (!sendable.length) return;
+
+    setSendingAll(true);
+    setError("");
+    setNotice("");
+    let sent = 0;
+    let skipped = 0;
+    const failures: string[] = [];
+
+    for (const lead of sendable) {
+      setRowBusy((b) => ({ ...b, [lead.id]: true }));
+      try {
+        const res = await api.sendLeadEmail(lead.id);
+        if (res.delivery.stubbed) skipped += 1;
+        else sent += 1;
+      } catch (e) {
+        failures.push(`${lead.email}: ${(e as Error).message}`);
+      } finally {
+        setRowBusy((b) => ({ ...b, [lead.id]: false }));
+      }
+    }
+
+    if (failures.length) {
+      setError(`Failed to send ${failures.length} email(s). ${failures[0]}`);
+    }
+    if (sent > 0 || skipped > 0) {
+      const parts = [];
+      if (sent > 0) parts.push(`${sent} delivered`);
+      if (skipped > 0) parts.push(`${skipped} skipped (check demo email settings)`);
+      setNotice(`Send all complete — ${parts.join(", ")}.`);
+    }
+
+    setSendingAll(false);
+  }
+
   async function clearAll() {
     await api.clearLeads();
     await load();
@@ -439,9 +501,18 @@ export default function OutreachPanel({
   }
 
   const pendingCount = leads.filter((l) => l.status === "pending" || l.status === "failed").length;
+  const sendableCount = leads.filter((l) => l.generated_email).length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {(notice || error) && (
+        <div className="shrink-0 rounded-lg border border-surface-line-subtle bg-ink-900/60 px-4 py-2.5 text-sm lg:col-span-2">
+          {notice && <p className="text-emerald-300">{notice}</p>}
+          {error && <p className={notice ? "mt-1 text-rose-400" : "text-rose-400"}>{error}</p>}
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
       <OutreachLaunchpad
         health={health}
         apollo={apollo}
@@ -484,15 +555,20 @@ export default function OutreachPanel({
         leads={leads}
         loading={loading}
         generatingAll={generatingAll}
+        sendingAll={sendingAll}
         pendingCount={pendingCount}
+        sendableCount={sendableCount}
         rowBusy={rowBusy}
         onPreview={setPreview}
         onGenerate={generate}
         onGenerateAll={generateAll}
+        onSend={send}
+        onSendAll={sendAll}
         onClearAll={clearAll}
       />
 
       <EmailPreviewModal lead={preview} onClose={() => setPreview(null)} />
+      </div>
     </div>
   );
 }

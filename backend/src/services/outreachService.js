@@ -2,6 +2,7 @@ const { store } = require("../store");
 const { httpError } = require("../helpers/errors");
 const { requireConfig, requireLlmProvider } = require("../helpers/requireConfig");
 const { pickTone } = require("../helpers/randomTone");
+const { resolveSenderName } = require("../helpers/renderOutreachEmail");
 const { generateOutreach } = require("./llmService");
 const { retrieveContext } = require("./retrievalService");
 
@@ -38,6 +39,8 @@ async function generateForLead({ userId, leadId, objective = "", enrichment = nu
     const contextChunks = await retrieveContext({ userId, query, topK: 2 });
     const toneResolved = pickTone(tone);
 
+    const senderName = resolveSenderName(user);
+
     const gen = await generateOutreach({
       lead: { ...lead, name: leadFullName(lead) },
       contextChunks,
@@ -45,6 +48,7 @@ async function generateForLead({ userId, leadId, objective = "", enrichment = nu
       tone: toneResolved,
       llmProvider,
       enrichment,
+      senderName,
     });
 
     const updated = await store.updateLead(leadId, {
