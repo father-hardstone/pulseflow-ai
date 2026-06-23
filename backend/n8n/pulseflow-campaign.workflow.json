@@ -1,0 +1,149 @@
+{
+  "name": "PulseFlow AI - Launch Campaign",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pulseflow-launch",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Launch Campaign Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "pulseflow-launch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nif (data.error || data.error_code) {\n  throw new Error(`Apollo API blocked: ${data.error || data.error_code}. People Search requires a paid Apollo plan with API access.`);\n}\nif (!Array.isArray(data.people)) {\n  throw new Error('Apollo returned an unexpected response (no people array).');\n}\nif (data.people.length === 0) {\n  throw new Error('Apollo returned 0 people for these filters. Try broader job title, industry, or location.');\n}\nreturn $input.all();"
+      },
+      "id": "check-apollo",
+      "name": "Check Apollo Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/api/v1/mixed_people/api_search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key", "value": "={{ $env.APOLLO_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ page: 1, per_page: Number($json.body.filters.limit) || 1, person_titles: $json.body.filters.jobTitle ? [$json.body.filters.jobTitle] : undefined, q_keywords: $json.body.filters.industry || $json.body.filters.keyword || undefined, person_locations: $json.body.filters.location ? [$json.body.filters.location] : undefined }) }}",
+        "options": {}
+      },
+      "id": "apollo-search",
+      "name": "Apollo People Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Launch Campaign Webhook').first().json.body;\nconst people = $input.first().json.people || [];\nconst limit = Number(trigger.filters?.limit) || 1;\n\nconst mapped = people\n  .filter((p) => p.id && p.has_email)\n  .slice(0, limit)\n  .map((p) => ({\n    json: {\n      userId: trigger.userId,\n      objective: trigger.objective || '',\n      apolloId: p.id,\n      lead: {\n        first_name: p.first_name || '',\n        last_name: String(p.last_name || p.last_name_obfuscated || '').replace(/\\*+/g, ''),\n        email: '',\n        company_name: (p.organization && p.organization.name) || '',\n        job_title: p.title || '',\n        industry: (p.organization && p.organization.industry) || ''\n      }\n    }\n  }));\n\nif (!mapped.length) {\n  throw new Error('No Apollo people with has_email=true in this batch. Enrichment cannot run without a matchable person.');\n}\nreturn mapped;"
+      },
+      "id": "map-leads",
+      "name": "Map Apollo -> Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/api/v1/people/match",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Api-Key", "value": "={{ $env.APOLLO_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.apolloId, reveal_personal_emails: true }) }}",
+        "options": { "batching": { "batch": { "batchSize": 1, "batchInterval": 1200 } } }
+      },
+      "id": "enrich-email",
+      "name": "Apollo Enrich Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Map Apollo -> Leads').item.json;\nconst enrich = $input.first().json;\nconst person = enrich.person || enrich;\nconst email = String(person.email || '').trim();\nif (!email) return [];\nreturn [{\n  json: {\n    userId: ctx.userId,\n    objective: ctx.objective,\n    lead: {\n      ...ctx.lead,\n      email,\n      first_name: person.first_name || ctx.lead.first_name,\n      last_name: person.last_name || ctx.lead.last_name,\n      company_name: (person.organization && person.organization.name) || ctx.lead.company_name,\n      job_title: person.title || ctx.lead.job_title,\n      industry: (person.organization && person.organization.industry) || ctx.lead.industry\n    }\n  }\n}];"
+      },
+      "id": "format-worker",
+      "name": "Format Worker Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WORKER_URL }}/api/worker/generate-outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "x-worker-secret", "value": "={{ $env.WORKER_SHARED_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "batching": { "batch": { "batchSize": 1, "batchInterval": 1500 } } }
+      },
+      "id": "generate-outreach",
+      "name": "Generate Outreach (LangChain Worker)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "content": "## PulseFlow campaign pipeline\n\n1. **api_search** — finds people (no emails in response)\n2. **Enrich** — `people/match` reveals email (1 Apollo credit each)\n3. **Worker** — RAG + LLM via `WORKER_URL` (must be `http://host.docker.internal:3000` on Docker Desktop)\n\nEnv: `APOLLO_API_KEY`, `WORKER_URL`, `WORKER_SHARED_SECRET`",
+        "height": 220,
+        "width": 400
+      },
+      "id": "sticky-output",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1160, 80]
+    }
+  ],
+  "connections": {
+    "Launch Campaign Webhook": {
+      "main": [[{ "node": "Apollo People Search", "type": "main", "index": 0 }]]
+    },
+    "Apollo People Search": {
+      "main": [[{ "node": "Check Apollo Response", "type": "main", "index": 0 }]]
+    },
+    "Check Apollo Response": {
+      "main": [[{ "node": "Map Apollo -> Leads", "type": "main", "index": 0 }]]
+    },
+    "Map Apollo -> Leads": {
+      "main": [[{ "node": "Apollo Enrich Email", "type": "main", "index": 0 }]]
+    },
+    "Apollo Enrich Email": {
+      "main": [[{ "node": "Format Worker Payload", "type": "main", "index": 0 }]]
+    },
+    "Format Worker Payload": {
+      "main": [[{ "node": "Generate Outreach (LangChain Worker)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

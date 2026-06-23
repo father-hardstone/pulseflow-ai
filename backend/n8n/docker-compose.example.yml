@@ -1,0 +1,21 @@
+# Reference compose for local n8n + PulseFlow backend on the host (Windows Docker Desktop).
+# Copy to your n8n folder and adjust secrets. Do not commit real API keys.
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n_pulseflow
+    ports:
+      - "5678:5678"
+    volumes:
+      - c:/n8n_data:/home/node/.n8n
+    environment:
+      # Apollo master key (free tier — keep batches small in PulseFlow UI)
+      - APOLLO_API_KEY=
+      # Backend on the host machine (NOT docker.internal)
+      - WORKER_URL=http://host.docker.internal:3000
+      # Must equal backend/.env WORKER_SHARED_SECRET
+      - WORKER_SHARED_SECRET=pulseflow_dev_secret_123
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
