@@ -1,5 +1,4 @@
 const mammoth = require("mammoth");
-const pdfParse = require("pdf-parse");
 const config = require("../config");
 const { httpError } = require("../helpers/errors");
 const { requireConfig } = require("../helpers/requireConfig");
@@ -116,6 +115,7 @@ function resolveExtractionMeta({ usedOcr, usedVision, baseSourceType }) {
 }
 
 async function extractPdfText(buffer) {
+  const pdfParse = require("pdf-parse");
   const result = await pdfParse(buffer);
   return normalizeWhitespace(result.text);
 }

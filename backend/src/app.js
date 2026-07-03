@@ -41,5 +41,4 @@ function handler(req, res) {
   return app(req, res);
 }
 
-module.exports = handler;
-module.exports.createApp = createApp;
+module.exports = { createApp, handler };
