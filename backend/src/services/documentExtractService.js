@@ -3,8 +3,12 @@ const config = require("../config");
 const { httpError } = require("../helpers/errors");
 const { requireConfig } = require("../helpers/requireConfig");
 const { ocrImageBuffer, ocrImagePages } = require("./ocrService");
-const { rasterizePdfToImages } = require("./pdfRasterService");
 const { analyzeImageBuffer, analyzeImagePages } = require("./imageAnalysisService");
+
+function rasterizePdfToImages(...args) {
+  const { rasterizePdfToImages: rasterize } = require("./pdfRasterService");
+  return rasterize(...args);
+}
 const { buildVisionDebugEvent } = require("../helpers/ocrDebug");
 
 const SUPPORTED_EXTENSIONS = new Set([

@@ -2,10 +2,10 @@
   "name": "@pulseflow/backend",
   "version": "1.0.0",
   "description": "PulseFlow AI backend API (Express): RAG knowledge base, Apollo campaigns, Gemini outreach worker",
-  "main": "src/server.js",
+  "main": "src/local-server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
+    "dev": "nodemon src/local-server.js",
+    "start": "node src/local-server.js",
     "db:migrate": "node scripts/db-migrate.js",
     "smoke:outreach": "node scripts/smoke-outreach.js",
     "check:n8n": "node scripts/check-n8n-webhook.js",
