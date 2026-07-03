@@ -47,7 +47,16 @@ const config = {
 
   groq: {
     apiKey: process.env.GROQ_API_KEY || "",
-    model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    // Text LLM (outreach generation via LangChain)
+    modelText:
+      process.env.GROQ_MODEL_TEXT ||
+      process.env.GROQ_MODEL ||
+      "llama-3.3-70b-versatile",
+    // Vision LLM (OCR on images and scanned PDFs)
+    modelVision:
+      process.env.GROQ_MODEL_VISION ||
+      process.env.GROQ_VISION_MODEL ||
+      "meta-llama/llama-4-scout-17b-16e-instruct",
   },
 
   llm: {
@@ -102,6 +111,12 @@ const config = {
   },
 
   embeddingDimensions: 384,
+
+  ocr: {
+    minTextChars: Number(process.env.OCR_MIN_TEXT_CHARS || 40),
+    maxPdfPages: Number(process.env.OCR_MAX_PDF_PAGES || 25),
+    pdfScale: Number(process.env.OCR_PDF_SCALE || 1.5),
+  },
 };
 
 // Reports which required env vars are missing for a given capability. Used by
@@ -132,6 +147,7 @@ const REQUIREMENTS = {
   },
   apollo: () => [["APOLLO_API_KEY", config.apollo.apiKey]],
   hunter: () => [["HUNTER_API_KEY", config.hunter.apiKey]],
+  ocr: () => [["GROQ_API_KEY", config.groq.apiKey]],
   resend: () => [["RESEND_API_KEY", config.resend.apiKey]],
   mailtrap: () => [["MAILTRAP_API_TOKEN", config.mailtrap.apiToken]],
   n8n: () => [["N8N_LAUNCH_WEBHOOK_URL", config.n8n.launchWebhookUrl]],
@@ -164,7 +180,7 @@ function activeLlmProvider() {
 }
 
 function activeLlmModel() {
-  return activeLlmProvider() === "groq" ? config.groq.model : config.gemini.model;
+  return activeLlmProvider() === "groq" ? config.groq.modelText : config.gemini.model;
 }
 
 config.missingFor = missingFor;

@@ -7,6 +7,8 @@ const {
   listKnowledge,
   createKnowledge,
   createKnowledgeStream,
+  createKnowledgeStreamUpload,
+  searchKnowledge,
   deleteKnowledge,
 } = require("../controllers/knowledgeController");
 const {
@@ -24,6 +26,7 @@ const worker = require("../controllers/workerController");
 const adminAuth = require("../controllers/adminAuthController");
 const admin = require("../controllers/adminController");
 const { asyncHandler } = require("../middlewares/asyncHandler");
+const { knowledgeUpload, handleUploadError } = require("../middlewares/uploadMiddleware");
 const { authRequired, workerAuth, adminAuthRequired } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
@@ -84,6 +87,14 @@ router.post("/api/worker/generate-outreach", workerAuth, asyncHandler(worker.gen
 router.get("/api/stats", authRequired, asyncHandler(stats));
 
 router.get("/api/knowledge", authRequired, asyncHandler(listKnowledge));
+router.post("/api/knowledge/search", authRequired, asyncHandler(searchKnowledge));
+router.post(
+  "/api/knowledge/stream/upload",
+  authRequired,
+  knowledgeUpload,
+  handleUploadError,
+  asyncHandler(createKnowledgeStreamUpload)
+);
 router.post("/api/knowledge/stream", authRequired, asyncHandler(createKnowledgeStream));
 router.post("/api/knowledge", authRequired, asyncHandler(createKnowledge));
 router.delete("/api/knowledge/:id", authRequired, asyncHandler(deleteKnowledge));

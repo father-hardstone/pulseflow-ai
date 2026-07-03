@@ -21,7 +21,7 @@ async function getModel(provider) {
           (mod) =>
             new mod.ChatGroq({
               apiKey: config.groq.apiKey,
-              model: config.groq.model,
+              model: config.groq.modelText,
               temperature: 0.55,
             })
         )
@@ -44,7 +44,7 @@ async function getModel(provider) {
 }
 
 function modelNameFor(provider) {
-  return resolveProvider(provider) === "groq" ? config.groq.model : config.gemini.model;
+  return resolveProvider(provider) === "groq" ? config.groq.modelText : config.gemini.model;
 }
 
 async function getZod() {

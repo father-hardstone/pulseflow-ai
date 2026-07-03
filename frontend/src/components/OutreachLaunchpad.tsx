@@ -121,9 +121,9 @@ export default function OutreachLaunchpad(props: OutreachLaunchpadProps) {
   return (
     <form
       onSubmit={onSubmit}
-      className="card flex max-h-full min-h-0 w-full shrink-0 flex-col overflow-hidden lg:w-[min(420px,38%)] xl:w-[min(440px,36%)]"
+      className="card flex w-full shrink-0 flex-col lg:max-h-full lg:min-h-0 lg:w-[min(420px,38%)] lg:overflow-hidden xl:w-[min(440px,36%)]"
     >
-      <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="scrollbar-slim overflow-y-auto p-5 lg:min-h-0 lg:flex-1">
         <div className="flex items-start gap-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-brand-300">
             <Rocket className="h-4 w-4" />

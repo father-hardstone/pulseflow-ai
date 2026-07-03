@@ -49,7 +49,7 @@ export default function SettingsPanel({ user, health }: SettingsPanelProps) {
   const [tab, setTab] = useState<SettingsTab>("profile");
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
       <div className="inline-flex shrink-0 flex-wrap gap-1 rounded-lg border border-surface-line bg-ink-800/60 p-0.5">
         {TABS.map((t) => {
           const Icon = t.icon;
@@ -70,20 +70,20 @@ export default function SettingsPanel({ user, health }: SettingsPanelProps) {
         })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {tab === "profile" && <ProfileSettings user={user} health={health} />}
         {tab === "demo-email" && (
-          <div className="scrollbar-slim h-full overflow-y-auto pr-1">
+          <div className="scrollbar-slim lg:h-full lg:overflow-y-auto lg:pr-1">
             <DemoEmailSettings />
           </div>
         )}
         {tab === "subscription" && (
-          <div className="scrollbar-slim h-full overflow-y-auto pr-1">
+          <div className="scrollbar-slim lg:h-full lg:overflow-y-auto lg:pr-1">
             <SubscriptionSettings />
           </div>
         )}
         {tab === "security" && (
-          <div className="scrollbar-slim h-full overflow-y-auto pr-1">
+          <div className="scrollbar-slim lg:h-full lg:overflow-y-auto lg:pr-1">
             <SecuritySettings />
           </div>
         )}

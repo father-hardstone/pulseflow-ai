@@ -23,7 +23,7 @@ function createApp() {
       docs: {
         health: "GET /api/health",
         stats: "GET /api/stats",
-        knowledge: "GET|POST /api/knowledge, DELETE /api/knowledge/:id",
+        knowledge: "GET|POST /api/knowledge, POST /api/knowledge/stream/upload, DELETE /api/knowledge/:id",
         campaigns: "POST /api/campaigns",
         leads: "GET /api/leads, POST /api/leads/:id/generate, POST /api/leads/generate-all",
       },

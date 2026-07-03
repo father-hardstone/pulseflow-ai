@@ -5,8 +5,9 @@ const { embedTexts } = require("./embeddingService");
 const { fetchYouTubeTranscript } = require("./youtubeTranscriptService");
 const { httpError } = require("../helpers/errors");
 const { requireConfig } = require("../helpers/requireConfig");
+const { extractDocumentText } = require("./documentExtractService");
 
-const INGEST_STEPS = ["fetch", "chunk", "embed", "store", "finalize"];
+const INGEST_STEPS = ["rasterize", "ocr", "analyze", "fetch", "chunk", "embed", "store", "finalize"];
 
 function stripHtml(html) {
   return String(html || "")
@@ -51,45 +52,90 @@ function emitProgress(onProgress, step, status, detail) {
 }
 
 // Ingests a content asset into the knowledge base with optional progress events.
-async function ingestContent({ userId, title, sourceUrl, text, onProgress }) {
+async function ingestContent({
+  userId,
+  title,
+  sourceUrl,
+  text,
+  fileBuffer,
+  fileName,
+  mimeType,
+  useOcr,
+  useMetaAnalysis,
+  onProgress,
+}) {
   requireConfig("embeddings");
 
   let sourceType = "text";
   let resolvedText = text || "";
   let resolvedTitle = title || "";
+  let resolvedSourceUrl = sourceUrl || null;
   let kbId = null;
   let currentStep = "fetch";
 
   try {
-    currentStep = "fetch";
-    emitProgress(onProgress, "fetch", "running");
-    if (sourceUrl && !resolvedText) {
-      if (isYouTube(sourceUrl)) {
-        sourceType = "youtube";
-        const yt = await fetchYouTubeTranscript(sourceUrl);
-        resolvedText = yt.text;
-        if (!resolvedTitle && yt.title) resolvedTitle = yt.title;
-      } else {
-        sourceType = "url";
-        resolvedText = await fetchUrlText(sourceUrl);
+    if (fileBuffer) {
+      const docProgress = onProgress
+        ? (step, status, detail) => emitProgress(onProgress, step, status, detail)
+        : null;
+
+      const extracted = await extractDocumentText(fileBuffer, {
+        fileName,
+        mimeType,
+        useOcr,
+        useMetaAnalysis,
+        userId,
+        onProgress: docProgress,
+        onOcrDebug: onProgress ? (event) => onProgress(event) : null,
+      });
+      sourceType = extracted.sourceType;
+      resolvedText = extracted.text;
+      if (!resolvedTitle && extracted.title) resolvedTitle = extracted.title;
+      currentStep = "fetch";
+    } else {
+      currentStep = "fetch";
+      emitProgress(onProgress, "fetch", "running");
+
+      if (sourceUrl && !resolvedText) {
+        if (isYouTube(sourceUrl)) {
+          sourceType = "youtube";
+          const yt = await fetchYouTubeTranscript(sourceUrl);
+          resolvedText = yt.text;
+          if (!resolvedTitle && yt.title) resolvedTitle = yt.title;
+        } else {
+          sourceType = "url";
+          resolvedText = await fetchUrlText(sourceUrl);
+        }
+        if (!resolvedTitle) resolvedTitle = guessTitleFromUrl(sourceUrl);
       }
-      if (!resolvedTitle) resolvedTitle = guessTitleFromUrl(sourceUrl);
+
+      resolvedText = String(resolvedText || "").trim();
+      if (!resolvedText) {
+        throw httpError(
+          400,
+          "Nothing to ingest: provide a file, `text`, or a fetchable `sourceUrl`."
+        );
+      }
+      if (!resolvedTitle) resolvedTitle = resolvedText.slice(0, 60);
+      emitProgress(onProgress, "fetch", "done", {
+        characters: resolvedText.length,
+        sourceType,
+      });
     }
 
     resolvedText = String(resolvedText || "").trim();
     if (!resolvedText) {
-      throw httpError(400, "Nothing to ingest: provide `text` or a fetchable `sourceUrl`.");
+      throw httpError(
+        400,
+        "Nothing to ingest: provide a file, `text`, or a fetchable `sourceUrl`."
+      );
     }
     if (!resolvedTitle) resolvedTitle = resolvedText.slice(0, 60);
-    emitProgress(onProgress, "fetch", "done", {
-      characters: resolvedText.length,
-      sourceType,
-    });
 
     const kb = await store.createKnowledge({
       userId,
       title: resolvedTitle,
-      sourceUrl: sourceUrl || null,
+      sourceUrl: resolvedSourceUrl,
       sourceType,
       status: "processing",
     });

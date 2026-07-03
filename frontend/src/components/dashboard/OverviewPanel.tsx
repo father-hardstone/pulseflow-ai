@@ -265,8 +265,8 @@ export default function OverviewPanel({ stats, onNavigate }: OverviewPanelProps)
       </section>
 
       {/* Segmented control + quick actions */}
-      <section className="flex flex-wrap items-center justify-between gap-4">
-        <div className="inline-flex rounded-xl border border-surface-line bg-ink-800/60 p-1">
+      <section className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex gap-1 overflow-x-auto rounded-xl border border-surface-line bg-ink-800/60 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {VIEWS.map((v) => {
             const Icon = v.icon;
             const isActive = view === v.id;
@@ -275,23 +275,31 @@ export default function OverviewPanel({ stats, onNavigate }: OverviewPanelProps)
                 key={v.id}
                 type="button"
                 onClick={() => setView(v.id)}
-                className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+                className={`relative flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition sm:px-4 ${
                   isActive
                     ? "bg-brand-600 text-white shadow-sm"
                     : "text-fg-muted hover:text-fg"
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {v.label}
+                <span className="whitespace-nowrap">{v.label}</span>
               </button>
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => onNavigate("knowledge")} className="btn-ghost px-4 py-2 text-sm">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button
+            type="button"
+            onClick={() => onNavigate("knowledge")}
+            className="btn-ghost justify-center px-3 py-2 text-sm sm:px-4"
+          >
             <Database className="h-4 w-4" /> Add knowledge
           </button>
-          <button type="button" onClick={() => onNavigate("outreach")} className="btn-primary px-4 py-2 text-sm">
+          <button
+            type="button"
+            onClick={() => onNavigate("outreach")}
+            className="btn-primary justify-center px-3 py-2 text-sm sm:px-4"
+          >
             <Megaphone className="h-4 w-4" /> Launch campaign
           </button>
         </div>

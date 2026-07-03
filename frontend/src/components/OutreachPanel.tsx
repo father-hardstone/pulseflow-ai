@@ -504,7 +504,7 @@ export default function OutreachPanel({
   const sendableCount = leads.filter((l) => l.generated_email).length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
       {(notice || error) && (
         <div className="shrink-0 rounded-lg border border-surface-line-subtle bg-ink-900/60 px-4 py-2.5 text-sm lg:col-span-2">
           {notice && <p className="text-emerald-300">{notice}</p>}
@@ -512,7 +512,7 @@ export default function OutreachPanel({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
       <OutreachLaunchpad
         health={health}
         apollo={apollo}

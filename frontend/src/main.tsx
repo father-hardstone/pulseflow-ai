@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import "./index.css";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -14,37 +14,48 @@ import Dashboard from "./pages/Dashboard";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
+function AppProviders() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AdminAuthProvider>
+          <Outlet />
+        </AdminAuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
 const router = createBrowserRouter([
-  { path: "/", element: <Landing /> },
-  { path: "/login", element: <Login /> },
-  { path: "/signup", element: <Signup /> },
   {
-    path: "/dashboard",
-    element: (
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    ),
-  },
-  { path: "/admin/login", element: <AdminLogin /> },
-  {
-    path: "/admin",
-    element: (
-      <AdminProtectedRoute>
-        <AdminDashboard />
-      </AdminProtectedRoute>
-    ),
+    element: <AppProviders />,
+    children: [
+      { path: "/", element: <Landing /> },
+      { path: "/login", element: <Login /> },
+      { path: "/signup", element: <Signup /> },
+      {
+        path: "/dashboard",
+        element: (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
+      { path: "/admin/login", element: <AdminLogin /> },
+      {
+        path: "/admin",
+        element: (
+          <AdminProtectedRoute>
+            <AdminDashboard />
+          </AdminProtectedRoute>
+        ),
+      },
+    ],
   },
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <AuthProvider>
-        <AdminAuthProvider>
-          <RouterProvider router={router} future={{ v7_startTransition: true }} />
-        </AdminAuthProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <RouterProvider router={router} future={{ v7_startTransition: true }} />
   </React.StrictMode>
 );

@@ -1,5 +1,7 @@
 // API base: empty string uses the Vite dev proxy (/api -> backend).
 // In production set VITE_API_BASE_URL to your deployed backend origin.
+import { logOcrDebugInBrowser, type OcrDebugEvent } from "./ocrDebug";
+
 const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
 const ACCESS_KEY = "pf_access_token";
@@ -35,10 +37,19 @@ export class ApiError extends Error {
 export type LeadStatus = "pending" | "processing" | "completed" | "failed";
 export type KbStatus = "processing" | "ready" | "failed";
 
-export type IngestStreamStepId = "fetch" | "chunk" | "embed" | "store" | "finalize";
+export type IngestStreamStepId =
+  | "rasterize"
+  | "ocr"
+  | "analyze"
+  | "fetch"
+  | "chunk"
+  | "embed"
+  | "store"
+  | "finalize";
 
 export type IngestStreamEvent =
   | { type: "step"; step: IngestStreamStepId; status: "running" | "done" | "failed"; detail?: Record<string, unknown> }
+  | OcrDebugEvent
   | { type: "complete"; item: KnowledgeItem }
   | { type: "error"; message: string; code?: string; status?: number };
 
@@ -58,6 +69,15 @@ export interface KnowledgeItem {
   status: KbStatus;
   created_at: string;
   chunk_count: number;
+}
+
+export interface KnowledgeSearchMatch {
+  kbId: string | null;
+  title: string | null;
+  sourceType: string | null;
+  sourceUrl: string | null;
+  similarity: number | null;
+  content: string;
 }
 
 export interface Lead {
@@ -126,7 +146,7 @@ export interface HealthConfigured {
   llmModel?: string;
   llmProviders?: {
     gemini: { configured: boolean; model: string };
-    groq: { configured: boolean; model: string };
+    groq: { configured: boolean; model: string; modelText?: string; modelVision?: string };
   };
   apollo: boolean;
   apolloApi?: {
@@ -154,6 +174,8 @@ export interface HealthConfigured {
   apolloLimits?: ApolloLimits;
   resend?: boolean;
   mailtrap?: boolean;
+  ocr?: boolean;
+  ocrModel?: string;
   n8n: boolean;
   n8nWebhook?: {
     configured: boolean;
@@ -215,34 +237,10 @@ async function request<T>(
   return data as T;
 }
 
-async function ingestKnowledgeStream(
-  payload: { title?: string; sourceUrl?: string; text?: string },
+async function consumeIngestStream(
+  res: Response,
   onEvent: (event: IngestStreamEvent) => void
 ): Promise<KnowledgeItem> {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  const access = tokenStore.access;
-  if (access) headers.set("Authorization", `Bearer ${access}`);
-
-  let res = await fetch(`${BASE}/api/knowledge/stream`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  if (res.status === 401 && tokenStore.refresh) {
-    const ok = await refreshAccessToken();
-    if (ok) {
-      headers.set("Authorization", `Bearer ${tokenStore.access}`);
-      res = await fetch(`${BASE}/api/knowledge/stream`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-    } else {
-      tokenStore.clear();
-    }
-  }
-
   if (!res.ok && !res.body) {
     const data = await res.json().catch(() => ({}));
     const d = data as { error?: string; code?: string };
@@ -268,6 +266,9 @@ async function ingestKnowledgeStream(
     for (const line of lines) {
       if (!line.trim()) continue;
       const event = JSON.parse(line) as IngestStreamEvent;
+      if (event.type === "ocr_debug") {
+        logOcrDebugInBrowser(event);
+      }
       onEvent(event);
       if (event.type === "complete") item = event.item;
       if (event.type === "error") {
@@ -279,6 +280,59 @@ async function ingestKnowledgeStream(
   if (streamError) throw streamError;
   if (!item) throw new ApiError("Ingest finished without a result", 500);
   return item;
+}
+
+async function postIngestStream(
+  path: string,
+  init: RequestInit,
+  onEvent: (event: IngestStreamEvent) => void
+): Promise<KnowledgeItem> {
+  const headers = new Headers(init.headers || {});
+  const access = tokenStore.access;
+  if (access) headers.set("Authorization", `Bearer ${access}`);
+
+  let res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401 && tokenStore.refresh) {
+    const ok = await refreshAccessToken();
+    if (ok) {
+      headers.set("Authorization", `Bearer ${tokenStore.access}`);
+      res = await fetch(`${BASE}${path}`, { ...init, headers });
+    } else {
+      tokenStore.clear();
+    }
+  }
+
+  return consumeIngestStream(res, onEvent);
+}
+
+async function ingestKnowledgeStream(
+  payload: { title?: string; sourceUrl?: string; text?: string },
+  onEvent: (event: IngestStreamEvent) => void
+): Promise<KnowledgeItem> {
+  return postIngestStream(
+    "/api/knowledge/stream",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    onEvent
+  );
+}
+
+async function ingestKnowledgeUploadStream(
+  formData: FormData,
+  onEvent: (event: IngestStreamEvent) => void
+): Promise<KnowledgeItem> {
+  return postIngestStream(
+    "/api/knowledge/stream/upload",
+    {
+      method: "POST",
+      body: formData,
+    },
+    onEvent
+  );
 }
 
 export const api = {
@@ -313,6 +367,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   addKnowledgeStream: ingestKnowledgeStream,
+  addKnowledgeUploadStream: ingestKnowledgeUploadStream,
+  searchKnowledge: (query: string, topK = 5) =>
+    request<{ ok: true; query: string; matches: KnowledgeSearchMatch[] }>(
+      "/api/knowledge/search",
+      { method: "POST", body: JSON.stringify({ query, topK }) }
+    ),
   deleteKnowledge: (id: string) =>
     request<{ ok: true }>(`/api/knowledge/${id}`, { method: "DELETE" }),
 
