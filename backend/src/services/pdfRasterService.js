@@ -1,12 +1,17 @@
 const config = require("../config");
 const { httpError } = require("../helpers/errors");
+const { ensurePdfCanvasGlobals } = require("../helpers/pdfCanvasPolyfill");
 const { MAX_OCR_IMAGE_BYTES } = require("./ocrService");
 
 let pdfRendererPromise;
 
 async function loadPdfRenderer() {
   if (!pdfRendererPromise) {
-    pdfRendererPromise = import("pdf-to-img").then((mod) => mod.pdf);
+    pdfRendererPromise = (async () => {
+      await ensurePdfCanvasGlobals();
+      const mod = await import("pdf-to-img");
+      return mod.pdf;
+    })();
   }
   return pdfRendererPromise;
 }
