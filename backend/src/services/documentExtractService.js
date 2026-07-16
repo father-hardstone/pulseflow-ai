@@ -3,7 +3,6 @@ const config = require("../config");
 const { httpError } = require("../helpers/errors");
 const { requireConfig } = require("../helpers/requireConfig");
 const { ocrImageBuffer, ocrImagePages } = require("./ocrService");
-const { rasterizePdfToImages } = require("./pdfRasterService");
 const { analyzeImageBuffer, analyzeImagePages } = require("./imageAnalysisService");
 const { buildVisionDebugEvent } = require("../helpers/ocrDebug");
 
@@ -143,6 +142,7 @@ function hasUsableText(text) {
 }
 
 async function rasterizePdf(buffer, onProgress) {
+  const { rasterizePdfToImages } = require("./pdfRasterService");
   emitStep(onProgress, "rasterize", "running");
   const pages = await rasterizePdfToImages(buffer, {
     onPage: ({ page }) => {

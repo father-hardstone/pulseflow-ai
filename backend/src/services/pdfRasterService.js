@@ -1,9 +1,18 @@
-const { pdf } = require("pdf-to-img");
 const config = require("../config");
 const { httpError } = require("../helpers/errors");
 const { MAX_OCR_IMAGE_BYTES } = require("./ocrService");
 
+let pdfRendererPromise;
+
+async function loadPdfRenderer() {
+  if (!pdfRendererPromise) {
+    pdfRendererPromise = import("pdf-to-img").then((mod) => mod.pdf);
+  }
+  return pdfRendererPromise;
+}
+
 async function rasterizePdfToImages(buffer, { maxPages, scale, onPage } = {}) {
+  const pdf = await loadPdfRenderer();
   const limit = maxPages ?? config.ocr.maxPdfPages;
   const renderScale = scale ?? config.ocr.pdfScale;
   const pages = [];
