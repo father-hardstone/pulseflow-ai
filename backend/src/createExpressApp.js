@@ -38,10 +38,4 @@ function createApp() {
   return app;
 }
 
-function handler(req, res) {
-  const app = createApp();
-  return app(req, res);
-}
-
-module.exports = handler;
-module.exports.createApp = createApp;
+module.exports = createApp;

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "PulseFlow AI backend API (Express): RAG knowledge base, Apollo campaigns, Gemini outreach worker",
   "scripts": {
-    "dev": "nodemon scripts/dev-server.js",
-    "start": "node scripts/dev-server.js",
+    "dev": "nodemon scripts/local-dev.js",
+    "local": "node scripts/local-dev.js",
     "db:migrate": "node scripts/db-migrate.js",
     "smoke:outreach": "node scripts/smoke-outreach.js",
     "check:n8n": "node scripts/check-n8n-webhook.js",

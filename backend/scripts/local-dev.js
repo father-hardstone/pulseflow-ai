@@ -1,12 +1,11 @@
 /**
- * Local development only — starts Express with app.listen().
- * Not used on Vercel (production entry is api/index.js).
+ * Local development only. Production entry is api/index.js (serverless).
  */
 const config = require("../src/config");
-const appModule = require("../src/app");
+const createApp = require("../src/createExpressApp");
 const { bootstrapFirstAdmin } = require("../src/services/adminAuthService");
 
-const app = appModule.createApp();
+const app = createApp();
 
 bootstrapFirstAdmin().catch((err) => {
   // eslint-disable-next-line no-console

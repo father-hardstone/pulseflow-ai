@@ -1,7 +1,4 @@
-const appModule = require("../src/app");
+const createApp = require("../src/createExpressApp");
 
-// Vercel serverless function entry — Express app as (req, res) handler.
-module.exports = (req, res) => {
-  const app = appModule.createApp();
-  return app(req, res);
-};
+// Vercel serverless entry — do not add app.listen() here.
+module.exports = (req, res) => createApp()(req, res);

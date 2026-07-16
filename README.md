@@ -99,9 +99,9 @@ Setup steps:
 
 ## Deploy (Vercel)
 
-Deploy `backend/` and `frontend/` as **two separate Vercel projects** (set each project's Root Directory accordingly):
+Deploy `backend/` and `frontend/` as **two separate Vercel projects**:
 
-- **backend/** — serverless entry at `api/index.js` (see `backend/vercel.json`). Set env vars in project settings.
+- **backend/** — set the Vercel project **Root Directory** to `backend`. Entry is `api/index.js` (see `backend/vercel.json`). Do not use `src/app.js` or any `*server*` file as the entry. After pushing, confirm the deployment build log routes to `api/index.js`, not `server.cjs` / `local-server.cjs`. If auto-deploy does not run, trigger **Redeploy** manually from the Vercel dashboard.
 - **frontend/** — static SPA (`vercel.json` rewrites all routes to `index.html`). Set `VITE_API_BASE_URL` to the deployed backend origin.
 
 ## Supabase schema
